@@ -105,7 +105,11 @@ void loop() {
     if (mainMenuActive) {
       lineVisible = true;
     } else if (cursorPos != 2) {
-      
+      unsigned long currentMillis = millis();
+      if (currentMillis - previousMillis >= blinkInterval) {
+        previousMillis = currentMillis;
+        lineVisible = !lineVisible;
+      }
     }
 
     lastPos = newPos;
@@ -136,8 +140,9 @@ void handlePress() {
   if(cursorPos == 2) {
     if(outputMode == 0) {
       float v = outputVoltage / 1000.0;
+      float a = outputCurrent / 1000.0;
       pps.setOutputVoltage(v);
-      pps.setOutputCurrent(0.5);
+      pps.setOutputCurrent(a);
       pps.setPowerEnable(true);
     } else {
       pps.setPowerEnable(false);

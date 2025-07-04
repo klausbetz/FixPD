@@ -7,7 +7,6 @@ bool M5ModulePPS::begin(TwoWire *wire, uint8_t sda, uint8_t scl, uint8_t addr,
     _sda   = sda;
     _scl   = scl;
     _speed = speed;
-    //_wire->begin(_sda, _scl);
     _wire->begin();
     _wire->setClock(_speed);
     delay(10);
