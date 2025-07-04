@@ -8,6 +8,11 @@
 #define PIN_ENCODER_B 23
 #define PIN_BUTTON 21
 
+#define VOLTAGE_INCREMENT 100
+#define CURRENT_INCREMENT 50
+#define MAX_VOLTAGE 20000
+#define MAX_CURRENT 5000
+
 // 16x16
 static const unsigned char ligthning_on[] U8X8_PROGMEM = {0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x03,0x80,0x01,0xc0,0x01,0xe0,0x00,0xf0,0x07,0x80,0x03,0xc0,0x01,0xc0,0x00,0x60,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
@@ -32,7 +37,7 @@ bool needsUpdate = false;
 byte cursorPos = 0; // 0=voltage, 1=current, 2=on/off
 
 unsigned long previousMillis = 0;
-const long blinkInterval = 1000; // in ms
+const long blinkInterval = 500; // in ms
 bool showLine = true;
 bool mainMenuActive = true;
 bool lineVisible = true;
@@ -72,43 +77,34 @@ void loop() {
   int temparature = (int)pps.getTemperature();
   uint8_t mode = pps.getMode();
 
-  if (newPos != lastPos || readbackVoltage != lastReadbackVoltage || readbackCurrent != lastReadbackCurrent || inputVoltage != lastInputVoltage || temparature != lastTemparature || mode != outputMode) {
-    // Serial.print("debug bool: ");
-    // Serial.print(inputVoltage != lastInputVoltage);
-    // Serial.print(", ");
-    // Serial.print(temparature != lastTemparature);
-    // Serial.print(", ");
-    // Serial.print(readbackVoltage != lastReadbackVoltage);
-    // Serial.print(", ");
-    // Serial.print(readbackCurrent != lastReadbackCurrent);
-    // Serial.print(", ");
-    // Serial.println(newPos != lastPos);
+  if (mainMenuActive && !lineVisible) {
+    lineVisible = true;
+    needsUpdate = true;
+  } else if (!mainMenuActive && cursorPos != 2) {
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= blinkInterval) {
+      previousMillis = currentMillis;
+      lineVisible = !lineVisible;
+      needsUpdate = true;
+    }
+  }
 
+  if (newPos != lastPos || readbackVoltage != lastReadbackVoltage || readbackCurrent != lastReadbackCurrent || inputVoltage != lastInputVoltage || temparature != lastTemparature || mode != outputMode) {
     if (newPos > lastPos) {
       if(mainMenuActive) {
         cursorPos = (cursorPos == 2) ? 0 : cursorPos+1;
       } else if (cursorPos == 0) {
-        outputVoltage = (outputVoltage+100 >= 15000) ? 15000 : outputVoltage + 100;
+        outputVoltage = (outputVoltage+VOLTAGE_INCREMENT >= MAX_VOLTAGE) ? MAX_VOLTAGE : outputVoltage + VOLTAGE_INCREMENT;
       } else if (cursorPos == 1) {
-        outputCurrent = (outputVoltage+50 >= 5000) ? 5000 : outputVoltage + 50;
+        outputCurrent = (outputCurrent+CURRENT_INCREMENT >= MAX_CURRENT) ? MAX_CURRENT : outputCurrent + CURRENT_INCREMENT;
       }
     } else if (newPos < lastPos) {
       if(mainMenuActive) {
         cursorPos = (cursorPos == 0) ? 2 : cursorPos-1;
       } else if (cursorPos == 0) {
-        outputVoltage = (outputVoltage-100 <= 0) ? 0 : outputVoltage - 100;
+        outputVoltage = (outputVoltage-VOLTAGE_INCREMENT <= 0) ? 0 : outputVoltage - VOLTAGE_INCREMENT;
       } else if (cursorPos == 1) {
-        outputCurrent = (outputCurrent-50 <= 0) ? 0 : outputCurrent - 50;
-      }
-    }
-    
-    if (mainMenuActive) {
-      lineVisible = true;
-    } else if (cursorPos != 2) {
-      unsigned long currentMillis = millis();
-      if (currentMillis - previousMillis >= blinkInterval) {
-        previousMillis = currentMillis;
-        lineVisible = !lineVisible;
+        outputCurrent = (outputCurrent-CURRENT_INCREMENT <= 0) ? 0 : outputCurrent - CURRENT_INCREMENT;
       }
     }
 
@@ -129,7 +125,7 @@ void loop() {
     needsUpdate = false;
   }
 
-  delay(50);
+  delay(20);
 }
 
 void tickEncoder() {
@@ -139,16 +135,20 @@ void tickEncoder() {
 void handlePress() {
   if(cursorPos == 2) {
     if(outputMode == 0) {
-      float v = outputVoltage / 1000.0;
-      float a = outputCurrent / 1000.0;
-      pps.setOutputVoltage(v);
-      pps.setOutputCurrent(a);
       pps.setPowerEnable(true);
     } else {
       pps.setPowerEnable(false);
     }
   } else {
-    mainMenuActive = false;
+    if (mainMenuActive) {
+      mainMenuActive = false;
+    } else {
+      float v = outputVoltage / 1000.0;
+      float a = outputCurrent / 1000.0;
+      pps.setOutputVoltage(v);
+      pps.setOutputCurrent(a);
+      mainMenuActive = true;
+    }
   }
 }
 
@@ -182,7 +182,7 @@ void drawScreen() {
   u8g2.drawStr(34, 28, buffer);
 
   if(cursorPos == 0 && lineVisible) {
-    u8g2.drawLine(34, 29, 80, 29);
+    u8g2.drawLine(64-(countDigits(outputVoltage)*6), 29, 80, 29);
   }
 
   if (lastReadbackCurrent < 10 && lastReadbackCurrent >= 0) {
@@ -199,7 +199,7 @@ void drawScreen() {
   u8g2.drawStr(34, 60, buffer);
 
   if(cursorPos == 1 && lineVisible) {
-    u8g2.drawLine(34, 61, 80, 61);
+    u8g2.drawLine(64-(countDigits(outputCurrent)*6), 61, 80, 61);
   }
 
   if (outputMode > 0) {
@@ -261,6 +261,18 @@ void debugPrint() {
   Serial.print(lastReadbackCurrent, 3);
   Serial.print("A, ");
   Serial.print(outputVoltage/1000.0, 3);
-  Serial.print("V");
+  Serial.print("V, ");
+  Serial.print(pps.getOutputVoltage(), 3);
+  Serial.print("V, ");
   Serial.println(lastPos);
+}
+
+char countDigits(int number) {
+  char currentNumberOfDigits = 0;
+  do {
+    number = number / 10;
+    currentNumberOfDigits++;
+  } while (number != 0);
+
+  return currentNumberOfDigits;
 }
