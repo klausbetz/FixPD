@@ -90,22 +90,19 @@ void loop() {
   }
 
   if (newPos != lastPos || readbackVoltage != lastReadbackVoltage || readbackCurrent != lastReadbackCurrent || inputVoltage != lastInputVoltage || temparature != lastTemparature || mode != outputMode) {
-    if (newPos > lastPos) {
-      if(mainMenuActive) {
-        cursorPos = (cursorPos == 2) ? 0 : cursorPos+1;
-      } else if (cursorPos == 0) {
-        outputVoltage = (outputVoltage+VOLTAGE_INCREMENT >= MAX_VOLTAGE) ? MAX_VOLTAGE : outputVoltage + VOLTAGE_INCREMENT;
-      } else if (cursorPos == 1) {
-        outputCurrent = (outputCurrent+CURRENT_INCREMENT >= MAX_CURRENT) ? MAX_CURRENT : outputCurrent + CURRENT_INCREMENT;
-      }
-    } else if (newPos < lastPos) {
-      if(mainMenuActive) {
-        cursorPos = (cursorPos == 0) ? 2 : cursorPos-1;
-      } else if (cursorPos == 0) {
-        outputVoltage = (outputVoltage-VOLTAGE_INCREMENT <= 0) ? 0 : outputVoltage - VOLTAGE_INCREMENT;
-      } else if (cursorPos == 1) {
-        outputCurrent = (outputCurrent-CURRENT_INCREMENT <= 0) ? 0 : outputCurrent - CURRENT_INCREMENT;
-      }
+    int delta = newPos - lastPos;
+    
+    if (!mainMenuActive && cursorPos == 0) {
+      int newOutputVoltage = outputVoltage+(VOLTAGE_INCREMENT * delta);
+      outputVoltage = (newOutputVoltage >= MAX_VOLTAGE) ? MAX_VOLTAGE : (newOutputVoltage <= 0) ? 0 : newOutputVoltage;
+    } else if (!mainMenuActive && cursorPos == 1) {
+      int newOutputCurrent = outputCurrent+(CURRENT_INCREMENT * delta);
+      outputCurrent = (newOutputCurrent >= MAX_CURRENT) ? MAX_CURRENT : (newOutputCurrent <= 0) ? 0 : newOutputCurrent;
+    } else if (mainMenuActive && delta != 0) {
+      int tempPos = (int)cursorPos + delta;
+      tempPos = (tempPos % 3 + 3) % 3;
+      cursorPos = (byte)tempPos;
+      delta = 0;
     }
 
     lastPos = newPos;
@@ -221,8 +218,12 @@ void drawScreen() {
     u8g2.drawStr(113, 33, "OFF");
   }
   
-  u8g2.setCursor(108, 42);
-  u8g2.print("33");
+  if(lastTemparature >= 10) {
+    u8g2.setCursor(108, 42);
+  } else {
+    u8g2.setCursor(113, 42);
+  }
+  u8g2.print(lastTemparature);
   u8g2.write(176);
   u8g2.print("C");
 
@@ -264,6 +265,8 @@ void debugPrint() {
   Serial.print("V, ");
   Serial.print(pps.getOutputVoltage(), 3);
   Serial.print("V, ");
+  Serial.print(cursorPos);
+  Serial.print(", ");
   Serial.println(lastPos);
 }
 

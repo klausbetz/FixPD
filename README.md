@@ -4,6 +4,8 @@ Specifically built for being used on the go where there's no power outlet availa
 
 Featuring USB-C PD input (preferrably 15V or 20V), 128x64 monochrome OLED display and a single rotary knob for controlling voltage and current.
 
+It requires at least 9V input and can output up to about `VIN - 5V` and up to 5A.
+
 ![](docs/screen.png)
 
 ## Hardware
