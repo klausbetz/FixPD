@@ -25,3 +25,7 @@ Works with Arduino IDE. Install following dependencies to get started in Arduino
 - U8G2
 - RotaryEncoder
 - OneButton
+
+## 3D printed case
+Printed [the case](print/fixpd%20case.3mf). Used the knob from https://makerworld.com/de/models/628840-ec11-encoder-knob.  
+PETG is recommended
